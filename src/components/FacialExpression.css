@@ -1,0 +1,136 @@
+.mood-player {
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    box-shadow: none;
+    border: none;
+}
+
+/* Video container */
+.video-container {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #2d3748;
+    padding: 6px;
+    border: 2px solid #718096;
+}
+
+.video-container video {
+    width: 320px;
+    height: 240px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+    background: #000;
+}
+
+/* Canvas overlay */
+.video-container canvas {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+/* Button styling */
+.mood-button {
+    background: #5f7ba0;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    min-width: 140px;
+}
+
+.mood-button:hover {
+    background: #5a67d8;
+}
+
+.mood-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #718096;
+}
+
+/* Loading state */
+.mood-button.loading {
+    background: #ed8936;
+}
+
+/* Mood result display */
+.mood-result {
+    background: #2d3748;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #718096;
+}
+
+.mood-result h3 {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+/* Error Display */
+.mood-result.error {
+    border-color: #f56565;
+    background: #2d3748;
+}
+
+.mood-result.error h3 {
+    color: #f56565;
+}
+
+.mood-result.error p {
+    color: #cbd5e0;
+    font-size: 0.9rem;
+    margin: 8px 0 0 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .mood-player {
+        gap: 15px;
+    }
+    
+    .video-container video {
+        width: 280px;
+        height: 210px;
+    }
+    
+    .mood-button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        min-width: 120px;
+    }
+}
+
+@media (max-width: 480px) {
+    .mood-player {
+        gap: 12px;
+    }
+    
+    .video-container video {
+        width: 240px;
+        height: 180px;
+    }
+    
+    .mood-button {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        min-width: 100px;
+    }
+}
