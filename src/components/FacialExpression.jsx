@@ -11,6 +11,13 @@ export default function FacialExpression({setSongs}) {
   const [moodResult, setMoodResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // Check for any error and log it
+  useEffect(() => {
+    if (error) {
+      console.error("FacialExpression error:", error);
+    }
+  }, [error]);
+
   const loadModels = async () => {
     try {
       const MODEL_URL = '/models';
@@ -75,7 +82,7 @@ export default function FacialExpression({setSongs}) {
       });
 
       // Fetch songs based on mood
-      const response = await axios.get(`http://localhost:3000/songs?mood=${_expression}`);
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/songs?mood=${_expression}`);
       setSongs(response.data.songs);
       
     } catch (err) {
