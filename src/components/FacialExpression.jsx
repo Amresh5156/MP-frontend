@@ -36,12 +36,44 @@ export default function FacialExpression({setSongs}) {
         throw new Error('Face API failed to load');
       }
       
-      const MODEL_URL = '/models';
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-      await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+      // Try multiple CDN sources for better reliability
+      const CDN_URLS = [
+        'https://justadudewhohacks.github.io/face-api.js/models',
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
+        'https://unpkg.com/face-api.js@0.22.2/weights'
+      ];
+      
+      let modelsLoaded = false;
+      let lastError = null;
+      
+      // Try each CDN until one works
+      for (const MODEL_URL of CDN_URLS) {
+        try {
+          console.log(`Trying to load models from: ${MODEL_URL}`);
+          
+          // Load only the models we actually need for mood detection
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+          ]);
+          
+          console.log('Models loaded successfully from:', MODEL_URL);
+          modelsLoaded = true;
+          break;
+        } catch (err) {
+          console.warn(`Failed to load from ${MODEL_URL}:`, err);
+          lastError = err;
+          continue;
+        }
+      }
+      
+      if (!modelsLoaded) {
+        throw new Error(`Failed to load models from all CDN sources. Last error: ${lastError?.message}`);
+      }
+      
       setIsVideoReady(true);
     } catch (err) {
-      setError('Failed to load AI models');
+      setError('Failed to load AI models. Please check your internet connection and try again.');
       console.error("Error loading models: ", err);
     } finally {
       setIsFaceApiLoading(false);
@@ -127,7 +159,7 @@ export default function FacialExpression({setSongs}) {
     if (error) return 'Error';
     if (isLoading) return 'Processing...';
     if (moodResult) return 'Mood Detected!';
-    if (isFaceApiLoading) return 'Loading AI...';
+    if (isFaceApiLoading) return 'Loading AI Models...';
     if (isVideoReady && faceapi) return 'Ready';
     if (isVideoReady && !faceapi) return 'Loading AI...';
     return 'Initializing...';
@@ -146,6 +178,32 @@ export default function FacialExpression({setSongs}) {
       <div className='status-indicator'>
         <div className={`status-dot ${getStatusClass()}`}></div>
         <span className='status-text'>{getStatusText()}</span>
+        
+        {/* Loading progress for AI models */}
+        {isFaceApiLoading && (
+          <div style={{ 
+            marginTop: '10px', 
+            fontSize: '0.9rem', 
+            color: '#718096',
+            textAlign: 'center' 
+          }}>
+            <div style={{ 
+              width: '100%', 
+              height: '4px', 
+              background: '#e2e8f0', 
+              borderRadius: '2px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, #4299e1, #667eea)',
+                animation: 'loading 2s ease-in-out infinite'
+              }}></div>
+            </div>
+            <p style={{ margin: '5px 0 0 0' }}>Downloading AI models...</p>
+          </div>
+        )}
       </div>
 
       {/* Video Container */}
@@ -171,6 +229,46 @@ export default function FacialExpression({setSongs}) {
         <div className='mood-result' style={{ borderColor: 'rgba(239, 68, 68, 0.5)' }}>
           <h3>⚠️ Error</h3>
           <p>{error}</p>
+          
+          {/* Retry button for model loading errors */}
+          {error.includes('Failed to load AI models') && (
+            <div style={{ marginTop: '15px' }}>
+              <button 
+                onClick={() => {
+                  setError(null);
+                  loadModels();
+                }}
+                style={{
+                  marginBottom: '10px',
+                  padding: '8px 16px',
+                  background: '#4299e1',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Retry Loading AI Models
+              </button>
+              
+              <div style={{ 
+                padding: '10px', 
+                background: '#f7fafc', 
+                borderRadius: '6px', 
+                fontSize: '0.9rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <p style={{ margin: '0 0 8px 0', color: '#4a5568' }}><strong>💡 Troubleshooting Tips:</strong></p>
+                <ul style={{ margin: '0', paddingLeft: '20px', color: '#4a5568' }}>
+                  <li>Check your internet connection</li>
+                  <li>Try refreshing the page</li>
+                  <li>Wait a few minutes and try again</li>
+                  <li>Models are loaded from external CDN servers</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
           {error.includes('Backend server') && (
             <div style={{ marginTop: '15px', padding: '10px', background: '#2d3748', borderRadius: '6px', fontSize: '0.9rem' }}>
               <p style={{ margin: '0 0 10px 0', color: '#cbd5e0' }}><strong>To fix this:</strong></p>
