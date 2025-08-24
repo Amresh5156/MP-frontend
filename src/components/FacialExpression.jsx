@@ -11,6 +11,7 @@ export default function FacialExpression({setSongs}) {
   const [moodResult, setMoodResult] = useState(null);
   const [error, setError] = useState(null);
   const [faceapi, setFaceapi] = useState(null);
+  const [isFaceApiLoading, setIsFaceApiLoading] = useState(false);
 
   // Check for any error and log it
   useEffect(() => {
@@ -21,10 +22,18 @@ export default function FacialExpression({setSongs}) {
 
   const loadModels = async () => {
     try {
+      setIsFaceApiLoading(true);
       // Dynamically import face-api.js only when needed
       if (!faceapi) {
         const faceApiModule = await import('face-api.js');
         setFaceapi(faceApiModule);
+        // Wait for the next render cycle to ensure faceapi is set
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      
+      // Double check that faceapi is available
+      if (!faceapi) {
+        throw new Error('Face API failed to load');
       }
       
       const MODEL_URL = '/models';
@@ -34,6 +43,8 @@ export default function FacialExpression({setSongs}) {
     } catch (err) {
       setError('Failed to load AI models');
       console.error("Error loading models: ", err);
+    } finally {
+      setIsFaceApiLoading(false);
     }
   };
 
@@ -116,6 +127,7 @@ export default function FacialExpression({setSongs}) {
     if (error) return 'Error';
     if (isLoading) return 'Processing...';
     if (moodResult) return 'Mood Detected!';
+    if (isFaceApiLoading) return 'Loading AI...';
     if (isVideoReady && faceapi) return 'Ready';
     if (isVideoReady && !faceapi) return 'Loading AI...';
     return 'Initializing...';
