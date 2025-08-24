@@ -20,23 +20,78 @@ export default function FacialExpression({setSongs}) {
     }
   }, [error]);
 
+  // Debug function to test faceapi module
+  const debugFaceApi = (module) => {
+    console.log('=== FACE API DEBUG INFO ===');
+    console.log('Module type:', typeof module);
+    console.log('Module:', module);
+    console.log('Module keys:', Object.keys(module || {}));
+    if (module && module.nets) {
+      console.log('Nets keys:', Object.keys(module.nets));
+    }
+    console.log('===========================');
+  };
+
   const loadModels = async () => {
     try {
       setIsFaceApiLoading(true);
       setError(null); // Clear any previous errors
       
       // Dynamically import face-api.js only when needed
+      let faceApiModule;
       if (!faceapi) {
-        const faceApiModule = await import('face-api.js');
-        setFaceapi(faceApiModule);
-        // Wait for the next render cycle to ensure faceapi is set
-        await new Promise(resolve => setTimeout(resolve, 0));
+        console.log('Importing face-api.js...');
+        try {
+          // Try different import approaches
+          try {
+            faceApiModule = await import('face-api.js');
+            console.log('face-api.js imported successfully via ES6 import:', faceApiModule);
+          } catch (es6Error) {
+            console.warn('ES6 import failed, trying alternative method:', es6Error);
+            // Fallback to require if available
+            if (typeof require !== 'undefined') {
+              faceApiModule = require('face-api.js');
+              console.log('face-api.js loaded via require:', faceApiModule);
+            } else {
+              throw es6Error;
+            }
+          }
+          
+          if (!faceApiModule) {
+            throw new Error('face-api.js module is empty or undefined');
+          }
+          
+          console.log('face-api.js module loaded, debugging...');
+          debugFaceApi(faceApiModule);
+          
+          setFaceapi(faceApiModule);
+          
+          // Wait for state to update
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (importError) {
+          console.error('Failed to import face-api.js:', importError);
+          throw new Error(`Failed to import face-api.js: ${importError.message}`);
+        }
+      } else {
+        faceApiModule = faceapi;
       }
       
+      // Use the module directly instead of relying on state
+      const currentFaceApi = faceApiModule || faceapi;
+      
       // Double check that faceapi is available
-      if (!faceapi) {
-        throw new Error('Face API failed to load');
+      if (!currentFaceApi) {
+        console.error('Face API is null/undefined');
+        throw new Error('Face API failed to load - module is null');
       }
+      
+      if (!currentFaceApi.nets) {
+        console.error('Face API structure:', currentFaceApi);
+        console.error('Available properties:', Object.keys(currentFaceApi));
+        throw new Error('Face API failed to load - nets property not available');
+      }
+      
+      console.log('Face API loaded, nets available:', Object.keys(currentFaceApi.nets));
       
       // Try multiple CDN sources for better reliability
       const CDN_URLS = [
@@ -55,8 +110,8 @@ export default function FacialExpression({setSongs}) {
           
           // Load only the models we actually need for mood detection
           await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+            currentFaceApi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            currentFaceApi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
           ]);
           
           console.log('Models loaded successfully from:', MODEL_URL);
@@ -80,6 +135,15 @@ export default function FacialExpression({setSongs}) {
     } catch (err) {
       setError('Failed to load AI models. Please check your internet connection and try again.');
       console.error("Error loading models: ", err);
+      
+      // Try to reset and retry once
+      if (!faceapi) {
+        console.log('Attempting to retry faceapi import...');
+        setTimeout(() => {
+          setFaceapi(null);
+          loadModels();
+        }, 2000);
+      }
     } finally {
       setIsFaceApiLoading(false);
     }
@@ -105,15 +169,22 @@ export default function FacialExpression({setSongs}) {
   };
 
   async function detectMood() {
-    if (!isVideoReady || !faceapi) return;
+    if (!isVideoReady) return;
+    
+    // Get the current faceapi module
+    const currentFaceApi = faceapi;
+    if (!currentFaceApi || !currentFaceApi.nets) {
+      setError('AI models not ready. Please wait for initialization to complete.');
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     setMoodResult(null);
     
     try {
-      const detections = await faceapi
-        .detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+      const detections = await currentFaceApi
+        .detectAllFaces(videoRef.current, new currentFaceApi.TinyFaceDetectorOptions())
         .withFaceExpressions();
 
       if(!detections || detections.length === 0){
@@ -157,13 +228,20 @@ export default function FacialExpression({setSongs}) {
     // Auto-load models and start video when component mounts
     const initializeApp = async () => {
       try {
+        console.log('Starting app initialization...');
+        
         // First load the AI models
+        console.log('Loading AI models...');
         await loadModels();
         
         // Then start the video stream
+        console.log('Starting video stream...');
         await startVideo();
+        
+        console.log('App initialization complete!');
       } catch (err) {
         console.error('Failed to initialize app:', err);
+        setError(`Initialization failed: ${err.message}`);
       }
     };
     
