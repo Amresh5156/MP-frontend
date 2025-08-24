@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as faceapi from 'face-api.js';
+// import * as faceapi from 'face-api.js'; // Removed static import
 import './FacialExpression.css'
 import axios from 'axios'
 
@@ -10,6 +10,7 @@ export default function FacialExpression({setSongs}) {
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [moodResult, setMoodResult] = useState(null);
   const [error, setError] = useState(null);
+  const [faceapi, setFaceapi] = useState(null);
 
   // Check for any error and log it
   useEffect(() => {
@@ -20,6 +21,12 @@ export default function FacialExpression({setSongs}) {
 
   const loadModels = async () => {
     try {
+      // Dynamically import face-api.js only when needed
+      if (!faceapi) {
+        const faceApiModule = await import('face-api.js');
+        setFaceapi(faceApiModule);
+      }
+      
       const MODEL_URL = '/models';
       await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
       await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
@@ -45,7 +52,7 @@ export default function FacialExpression({setSongs}) {
   };
 
   async function detectMood() {
-    if (!isVideoReady) return;
+    if (!isVideoReady || !faceapi) return;
     
     setIsLoading(true);
     setError(null);
@@ -109,7 +116,8 @@ export default function FacialExpression({setSongs}) {
     if (error) return 'Error';
     if (isLoading) return 'Processing...';
     if (moodResult) return 'Mood Detected!';
-    if (isVideoReady) return 'Ready';
+    if (isVideoReady && faceapi) return 'Ready';
+    if (isVideoReady && !faceapi) return 'Loading AI...';
     return 'Initializing...';
   };
 
@@ -169,7 +177,7 @@ export default function FacialExpression({setSongs}) {
       <button 
         className={`mood-button ${isLoading ? 'loading' : ''}`}
         onClick={detectMood}
-        disabled={!isVideoReady || isLoading}
+        disabled={!isVideoReady || !faceapi || isLoading}
       >
         {isLoading ? 'Detecting...' : 'Detect Mood'}
       </button>
