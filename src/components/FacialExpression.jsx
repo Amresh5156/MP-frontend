@@ -23,6 +23,8 @@ export default function FacialExpression({setSongs}) {
   const loadModels = async () => {
     try {
       setIsFaceApiLoading(true);
+      setError(null); // Clear any previous errors
+      
       // Dynamically import face-api.js only when needed
       if (!faceapi) {
         const faceApiModule = await import('face-api.js');
@@ -71,7 +73,10 @@ export default function FacialExpression({setSongs}) {
         throw new Error(`Failed to load models from all CDN sources. Last error: ${lastError?.message}`);
       }
       
+      // Models are loaded, now we're ready for mood detection
       setIsVideoReady(true);
+      console.log('AI models loaded successfully - ready for mood detection!');
+      
     } catch (err) {
       setError('Failed to load AI models. Please check your internet connection and try again.');
       console.error("Error loading models: ", err);
@@ -80,18 +85,23 @@ export default function FacialExpression({setSongs}) {
     }
   };
 
-  const startVideo = () => {
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        videoRef.current.srcObject = stream;
+  const startVideo = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoRef.current.srcObject = stream;
+      
+      // Wait for video to be ready
+      return new Promise((resolve) => {
         videoRef.current.onloadedmetadata = () => {
-          setIsVideoReady(true);
+          console.log('Video stream ready');
+          resolve();
         };
-      })
-      .catch((err) => {
-        setError('Camera access denied. Please allow camera permissions.');
-        console.error("Error accessing webcam: ", err);
       });
+    } catch (err) {
+      setError('Camera access denied. Please allow camera permissions.');
+      console.error("Error accessing webcam: ", err);
+      throw err;
+    }
   };
 
   async function detectMood() {
@@ -144,7 +154,20 @@ export default function FacialExpression({setSongs}) {
   }
 
   useEffect(() => {
-    loadModels().then(startVideo);
+    // Auto-load models and start video when component mounts
+    const initializeApp = async () => {
+      try {
+        // First load the AI models
+        await loadModels();
+        
+        // Then start the video stream
+        await startVideo();
+      } catch (err) {
+        console.error('Failed to initialize app:', err);
+      }
+    };
+    
+    initializeApp();
     
     return () => {
       // Cleanup video stream on unmount
@@ -160,9 +183,9 @@ export default function FacialExpression({setSongs}) {
     if (isLoading) return 'Processing...';
     if (moodResult) return 'Mood Detected!';
     if (isFaceApiLoading) return 'Loading AI Models...';
-    if (isVideoReady && faceapi) return 'Ready';
+    if (isVideoReady && faceapi) return 'Ready - Click Detect Mood!';
     if (isVideoReady && !faceapi) return 'Loading AI...';
-    return 'Initializing...';
+    return 'Initializing Camera & AI...';
   };
 
   const getStatusClass = () => {
@@ -201,7 +224,35 @@ export default function FacialExpression({setSongs}) {
                 animation: 'loading 2s ease-in-out infinite'
               }}></div>
             </div>
-            <p style={{ margin: '5px 0 0 0' }}>Downloading AI models...</p>
+            <p style={{ margin: '5px 0 0 0' }}>🔄 Loading AI models from CDN...</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#a0aec0' }}>
+              This may take a few seconds on first visit
+            </p>
+            <div style={{ 
+              marginTop: '8px', 
+              padding: '8px', 
+              background: '#f7fafc', 
+              borderRadius: '4px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <p style={{ margin: '0 0 5px 0', fontSize: '0.8rem', color: '#4a5568' }}><strong>Loading:</strong></p>
+              <ul style={{ margin: '0', paddingLeft: '15px', fontSize: '0.8rem', color: '#4a5568' }}>
+                <li>Face detection model</li>
+                <li>Expression recognition model</li>
+              </ul>
+            </div>
+          </div>
+        )}
+        
+        {/* Camera initialization indicator */}
+        {!isFaceApiLoading && !isVideoReady && !error && (
+          <div style={{ 
+            marginTop: '10px', 
+            fontSize: '0.9rem', 
+            color: '#718096',
+            textAlign: 'center' 
+          }}>
+            <p style={{ margin: '0' }}>📹 Initializing camera...</p>
           </div>
         )}
       </div>
@@ -216,6 +267,14 @@ export default function FacialExpression({setSongs}) {
         />
         <canvas ref={canvasRef} />
       </div>
+
+      {/* Success Message when everything is ready */}
+      {isVideoReady && faceapi && !error && !moodResult && !isLoading && (
+        <div className='mood-result' style={{ borderColor: 'rgba(34, 197, 94, 0.5)', background: 'rgba(34, 197, 94, 0.1)' }}>
+          <h3>✅ Ready!</h3>
+          <p>AI models loaded successfully. Position your face in the camera and click "Detect Mood" to get started!</p>
+        </div>
+      )}
 
       {/* Mood Result Display */}
       {moodResult && (
@@ -288,6 +347,10 @@ export default function FacialExpression({setSongs}) {
         className={`mood-button ${isLoading ? 'loading' : ''}`}
         onClick={detectMood}
         disabled={!isVideoReady || !faceapi || isLoading}
+        style={{
+          opacity: (!isVideoReady || !faceapi || isLoading) ? 0.6 : 1,
+          cursor: (!isVideoReady || !faceapi || isLoading) ? 'not-allowed' : 'pointer'
+        }}
       >
         {isLoading ? 'Detecting...' : 'Detect Mood'}
       </button>
